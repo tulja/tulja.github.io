@@ -4,12 +4,10 @@ title: About
 permalink: /about/
 ---
 
-This is the base Jekyll theme. You can find out more info about customizing your Jekyll theme, as well as basic Jekyll usage documentation at [jekyllrb.com](http://jekyllrb.com/)
+ <p>
+    Hi, This is Tulja Vamshi Kiran Buyakar. I'm a Software Engineer working at Dell SecureWorks. I did my Masters in Computer Science and Engineering from IIT Hyderabad. 
+    <img align="right" src="/assets/btvk.png" height="102" width="102">
 
-You can find the source code for the Jekyll new theme at:
-{% include icon-github.html username="jglovier" %} /
-[jekyll-new](https://github.com/jglovier/jekyll-new)
+  </p>
 
-You can find the source code for Jekyll at
-{% include icon-github.html username="jekyll" %} /
-[jekyll](https://github.com/jekyll/jekyll)
+

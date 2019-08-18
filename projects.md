@@ -4,4 +4,5 @@ title: Projects
 permalink: /projects/
 ---
 
-This is the place to put my projects. 
+* [GSoC 2019 Web Based Honeypot Project](https://www.google.com)
+* [5G Service Based Architecture Implementation using gRPC](https://github.com/iithnewslab/SBA-gRPC-5G)
