@@ -1,0 +1,165 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>"Web Based Honeypots" </title></head><body>
+<h2 id="flow-level-bandwidth-provisioning-to-the-docker-containers-using-openvswitch-ovs">Flow level Bandwidth Provisioning to the Docker Containers using OpenVSwitch (OVS)</h2>
+<p>The goal of this Proof of Concept to show the flow level bandwidth provisioning using the OvS Switch. 
+We achieve it using below steps.
+<em>    Docker Networking using OVS 
+</em>    Creation of OVS Queues 
+<em>    Adding the Flow Rules
+</em>    Test the Bandwidth Provisioning </p>
+<p>In this setup we have two Docker Containers. We attach the two docker containers to OVS and test the bandwidth provisioning using them. </p>
+<p><img alt="Alt text" src="/assets/flowOVS.jpg?raw=true" title="OVS Setup" /></p>
+<h3 id="dependencies-for-the-setup">Dependencies for the setup</h3>
+<ul>
+<li>Ubuntu 16.04 </li>
+<li>Docker</li>
+</ul>
+<h3 id="docker-networking-using-ovs">Docker Networking using OvS</h3>
+<p>First of all we need to create the OVS based Docker Networking. </p>
+<ul>
+<li>
+<p>Install OVS and ovs-docker utility
+{% highlight ruby %}
+sudo su
+apt-get -y install openvswitch-switch
+cd /usr/bin
+wget https://raw.githubusercontent.com/openvswitch/ovs/master/utilities/ovs-docker
+chmod a+rwx ovs-docker
+{% endhighlight %}</p>
+</li>
+<li>
+<p>Create the OVS bridge
+{% highlight ruby %}
+ovs-vsctl add-br ovs-br1
+ovs-vsctl show
+{% endhighlight %}</p>
+</li>
+<li>
+<p>Configure the OVS-br and create two ubuntu Docker Containers without network
+{% highlight ruby %}
+ifconfig ovs-br1 10.0.0.1 netmask 255.255.255.0 up
+docker run -ti -d --rm --name cont1 --cap-add NET_ADMIN --net=none -v ~/multi_threaded_iperf/:/code btvk/delay_ns
+docker run -ti -d --rm --name cont2 --cap-add NET_ADMIN --net=none -v ~/multi_threaded_iperf/:/code btvk/delay_ns
+{% endhighlight %}</p>
+</li>
+<li>
+<p>Connect the containers to OVS bridge 
+{% highlight ruby %}
+sudo ovs-docker add-port ovs-br1 eth0 cont1 --ipaddress=10.0.0.2/24 --gateway=10.0.0.1
+sudo ovs-docker add-port ovs-br1 eth0 cont2 --ipaddress=10.0.0.3/24 --gateway=10.0.0.1
+{% endhighlight %}</p>
+</li>
+<li>
+<p>Add NAT Rules (Change your pubintf from "enp0s1" appropriatly)
+{% highlight ruby %}
+export pubintf=enp0s1
+export privateintf=ovs-br1
+iptables -t nat -A POSTROUTING -o $pubintf -j MASQUERADE
+iptables -A FORWARD -i $privateintf -j ACCEPT
+iptables -A FORWARD -i $privateintf -o $pubintf -m state --state RELATED,ESTABLISHED -j ACCEPT
+{% endhighlight %}</p>
+</li>
+<li>
+<p>Test the connection between two containers connected via OVS bridge using Ping command
+{% highlight ruby %}</p>
+</li>
+</ul>
+<h1 id="log-in-to-cont1-docker">log in to cont1 docker</h1>
+<p>docker exec -it cont1 bash</p>
+<h1 id="10003-is-ip-addr-of-cont2">10.0.0.3 is IP Addr. of cont2</h1>
+<p>ping 10.0.0.3
+{% endhighlight %}</p>
+<h3 id="creation-of-ovs-queues">Creation of OVS Queues</h3>
+<ul>
+<li>We need the OVS port-ids of <strong>cont1</strong> and <strong>cont2</strong> that are connected to <strong>ovs-br1</strong> (See the above figure). 
+{% highlight ruby %}</li>
+</ul>
+<h1 id="cont1-is-the-container-name">cont1 is the container name</h1>
+<h1 id="eth0-is-the-ovs-docker-interface-in-the-container">eth0 is the ovs-docker interface in the container</h1>
+<p>ovs-vsctl --data=bare --no-heading --columns=name find interface \
+             external_ids:container_id="cont1"  \
+             external_ids:container_iface="eth0"</p>
+<h1 id="output-from-above-will-be-the-ovs-port-id-for-cont1-note-it-for-next-step">output from above will be the ovs-port-id for cont1. Note it for next step.</h1>
+<p>ovs-vsctl --data=bare --no-heading --columns=name find interface \
+             external_ids:container_id="cont2"  \
+             external_ids:container_iface="eth0"</p>
+<h1 id="output-from-above-will-be-the-ovs-port-id-for-cont2-note-it-for-next-step">output from above will be the ovs-port-id for cont2. Note it for next step.</h1>
+<p>{% endhighlight %}</p>
+<ul>
+<li>
+<p>Let say we got the below values for ovs-port-ids (from the above step).
+{% highlight ruby %}
+cont1 ovs-br1 e0715799fb694_l
+cont2 ovs-br1 38c9206b60f94_l
+{% endhighlight %}</p>
+</li>
+<li>
+<p>Now, we create OvS Queues at <strong>ovs-br1</strong>. We create two queues at <em>e0715799fb694_l</em> and <em>38c9206b60f94_l</em> with maximum rates of 30Mbps in one queue and 5Mbps in other queue.</p>
+</li>
+</ul>
+<p>{% highlight ruby %}
+ovs-vsctl set port e0715799fb694_l qos=@qos1 -- --id=@qos1 create qos type=linux-htb \
+    queues:0=@queue0 queues:1=@queue1 -- \
+    --id=@queue0 create queue other-config:max-rate=30000000 -- \
+    --id=@queue1 create queue other-config:max-rate=5000000</p>
+<p>ovs-vsctl set port 38c9206b60f94_l qos=@qos2 -- --id=@qos2 create qos type=linux-htb \
+    queues:2=@queue2 queues:3=@queue3 -- \
+    --id=@queue2 create queue other-config:max-rate=30000000 -- \
+    --id=@queue3 create queue other-config:max-rate=5000000
+{% endhighlight %}</p>
+<h3 id="adding-the-flow-rules">Adding the Flow Rules</h3>
+<ul>
+<li>
+<p>To list QoS rules
+{% highlight ruby %}
+ovs-vsctl list qos
+{% endhighlight %}</p>
+</li>
+<li>
+<p>Use below commands to create flow rules for TCP/UDP ports. If the TCP destination port is 9090, we set the packet to go through queue-0 and if the TCP destination port is 9091, we set the packet to go through queue-1. Else, it goes through the default queue.</p>
+</li>
+</ul>
+<p>{% highlight ruby %}
+ovs-ofctl add-flow ovs-br1 priority=65535,tcp,tcp_dst=9090,actions=set_queue:0,normal
+ovs-ofctl add-flow ovs-br1 priority=65535,tcp,tcp_dst=9091,actions=set_queue:1,normal
+ovs-ofctl add-flow ovs-br1 priority=0,actions=normal
+{% endhighlight %}</p>
+<ul>
+<li>To view all added flow rules in a switch
+{% highlight ruby %}
+ovs-ofctl dump-flows ovs-br1
+{% endhighlight %}</li>
+<li>To delete all flow rules in a switch
+{% highlight ruby %}
+ovs-ofctl del-flows ovs-br1
+{% endhighlight %}</li>
+</ul>
+<h3 id="test-the-bandwidth-provisioning">Test the Bandwidth Provisioning</h3>
+<ul>
+<li>Execute the <strong>cont2</strong></li>
+</ul>
+<p>{% highlight ruby %}
+docker exec -it cont2 bash
+apt install -y iperf3
+iperf3 -s -p 9090
+{% endhighlight %}</p>
+<ul>
+<li>
+<p>Parallely in another terminal execute <strong>cont1</strong>
+{% highlight ruby %}
+docker exec -it cont1 bash
+apt install -y iperf3
+iperf3 -c 10.0.0.3 -p 9090
+{% endhighlight %}</p>
+</li>
+<li>
+<p>Observe the iperf3 sender throughput at <strong>cont1</strong> after  iperf session. It should be nearly 30 Mbps. If we repeat the above steps by changing the iperf3 port to 9091, we should see iperf3 sender throughput at <strong>cont1</strong> after  iperf session to be nearly 5Mbps.</p>
+</li>
+<li>
+<p><strong>References</strong></p>
+<ul>
+<li>https://developer.ibm.com/recipes/tutorials/using-ovs-bridge-for-docker-networking/</li>
+<li>http://docs.openvswitch.org/en/latest/faq/qos/</li>
+</ul>
+</li>
+</ul>
+</body></html>

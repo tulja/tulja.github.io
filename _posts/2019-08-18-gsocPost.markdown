@@ -1,0 +1,99 @@
+---
+layout: post
+title:  "Building a Web-based Honeypot & Reporting Threat Intelligence."
+date:   2019-08-18 11:47:43 +0530
+categories: blogs
+---
+
+<table>
+    <tr>
+        <td><img src="/assets/gsoc19.png" width="300"></td>
+        <td><img src="/assets/owasp.jpg" width="400"></td>
+    </tr>
+</table>
+
+
+
+## Introduction
+
+I'm a Google Summer of Code-2019 student for the OWASP organization working on the OWASP Honeypot project. My project was to build an automated web-based Honeypots using the ModSecurity, a Web Application Firewall (WAF) and reporting the information to Malware Information Sharing Platform (MISP).
+
+First and foremost, I would like to thank my mentors [Adrian Winckles](https://aru.ac.uk/people/adrian-winckles) & [Felipe Zipitría](https://www.fing.edu.uy/~fzipi/) and the whole OWASP community, in general, for letting me work on this fantastic project. 
+
+## Motivation Behind the Project
+
+The purpose of this project is to capture intelligence on attacker activity against web applications and utilize this intelligence as ways to protect software against attacks. We gather the attack information by laying the honeypots using the web application firewalls. With enough honeypots globally distributed, we will be in a position to aggregate attack techniques to better understand and protect against the methods used by attackers.
+
+
+## High-Level Architecture
+
+The overall design consists of mainly three modules, which are Honeypot software, Collection software, and Community software.
+<br/>
+<br/>
+
+![Alt text](/assets/honeytrap_arch.jpg?raw=true "Building Honeytraps and Reporting Threat Intelligence")
+
+*   **Honeypot software**: This modules lays the honeytrap and lures the Attacker to gather information about the Attacker. ModSecurity is used for laying the honeytraps.
+
+    * We lay honeytraps using the Core Rule Set (CRS) rules of ModSecurity. We collect the attack information using the Audit logs of ModSecurity. Once the logs are generated, they are sent to Collection software (ELK Stack) for further processing. Shipping the logs is done with the help of Filebeat. The ModSecurity Audit Collector (mlogc) is another way of exporting the logs to ELK Stack. In this project, we have both forms of shipping. Any method can be chosen appropriately.
+    * There are three phases of recognizing the attack.
+        - Luring the Attacker with a bait
+        - Identifying the Attacker from his/her actions
+        - Gathering the information about the Attacker (From the logs)
+
+| Bait | Identification of Attacker | 
+| ------- | ------- | 
+| Adding Fake Listen Ports | If the web client is trying to access these fake ports, it will tagged as malicious | 
+| Adding Fake entry in robots.txt | If it accesses the restricted location,  it will tagged as malicious |
+| Adding Fake HTML comments | If it accesses the Debugging information from HTML comments, it can be marked malicious |
+| Adding Fake Hidden Form Fields | If it manipulates the hidden form field(s) set by the web server, it is tagged malicious|
+| Adding Fake Cookie Data | If it manipulates the cookies set by the web server, it is tagged malicious|
+
+
+<br/>
+
+
+*   **Collection software**: This module processes the logs that are incoming to the system. It filters out the attack information and sends them to community software. Elastic Search Logstash Kibana (ELK) stack is used as log collection software. ELK Stack processes the logs and visualizes the attack information. The screenshot shows the attack information visualization.
+    *   The Collection software also runs the periodic MISP client which periodically collects the honeytrap information and automatically reports it to the Community software. 
+    *   The honeytrap information is sent along with relevant tags by the MISP client. 
+
+![Alt text](/assets/kibanaDashboard.png?raw=true "Honeypot Dashboard")
+
+
+
+*   **Community software**: It maintains the attack information from various sources and reports to the community. The Malware Information Sharing Platform (MISP) is used as the community software. Various details about the attack such as Threat level, Analysis done, Timestamp, Tags, etc. are reported at MISP. Below screenshot shows the details of MISP event.
+
+![Alt text](/assets/mispEvent.png?raw=true "MISP Event")
+
+
+
+All the above three modules are realized as Docker containers. Currently, all of them are running on a single host. With the proper configuration, they can be run on multiple nodes as well. The demonstration of the project using the Docker platform is shown in the below video. 
+
+<center>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/uE-uYwqEZYA" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>    
+</center>
+
+
+
+## Future RoadMap
+
+*   Use [Packer](http://packer.io/) for generating the VM images for the above three modules. 
+*   Machine Learning based approach to automatically update the rule set upon cyber threat intelligence received. 
+*   Add more honeytraps using ModSecurity rules.
+
+
+## Relevant Links
+* **Setup Instructions**
+    * [https://github.com/owasp/Honeypot-Project/tree/master/honeytraps](https://github.com/owasp/Honeypot-Project/tree/master/honeytraps)
+    * [https://www.youtube.com/watch?v=uE-uYwqEZYA](https://www.youtube.com/watch?v=uE-uYwqEZYA)
+* **Pull Requests Created**
+    * [https://github.com/OWASP/Honeypot-Project/pull/11](https://github.com/OWASP/Honeypot-Project/pull/11)
+    * [https://github.com/OWASP/Honeypot-Project/pull/12](https://github.com/OWASP/Honeypot-Project/pull/12)
+    * [https://github.com/OWASP/Honeypot-Project/pull/14](https://github.com/OWASP/Honeypot-Project/pull/14)
+    * [https://github.com/OWASP/Honeypot-Project/pull/15](https://github.com/OWASP/Honeypot-Project/pull/15)
+* **GSoC Proposal**
+    * [GSoC 2019 OWASP Honeypot Proposal](https://docs.google.com/document/d/1nyXuuS90TAy-UyeCE3vsoR7V5fUQ2adbxguEWdKjbiQ)
+
+
+
+

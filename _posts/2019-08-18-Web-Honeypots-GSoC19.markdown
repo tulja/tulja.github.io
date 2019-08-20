@@ -1,3 +1,10 @@
+---
+layout: post
+title:  "Web Based Honeypots"
+date:   2019-08-18 11:47:43 +0530
+categories: jekyll update
+---
+
 ## Building Honeytraps and Reporting Threat Intelligence
 
 The goal of this PoC to set the ModSecurity based Honeytraps. In this PoC, we will consider different such honeytraps and gather information about the attacker. 
@@ -20,7 +27,7 @@ Basically we will lay honeytraps using the Core Rule Set (CRS) rules of ModSecur
 
 In this setup we have three Docker Containers. Each one for ModSecurity+Apache Web Server, ELK and MISP (as shown in below architecture diagram).
 
-![Alt text](./honeytrap_arch.jpg?raw=true "Building Honeytraps and Reporing Threat Intelligence")
+![Alt text](/assets/honeytrap_arch.jpg?raw=true "Building Honeytraps and Reporing Threat Intelligence")
 
 A step by step video demonstration is shown at https://www.youtube.com/watch?v=uE-uYwqEZYA 
 
@@ -205,4 +212,5 @@ docker exec -d elk_app pipenv run python3 kibana-client.py
     * https://misp-project.org
     * https://github.com/harvard-itsecurity/docker-misp
     * https://pymisp.readthedocs.io/
+
 

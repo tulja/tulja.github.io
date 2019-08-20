@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Building a Web-based Honeypot & Reporting Threat Intelligence</title>
+  <meta name="description" content="Introduction">
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="canonical" href="http://tulja.github.io/jekyll/update/2019/08/18/gsocPost.html">
+  <link rel="alternate" type="application/rss+xml" title="Tulja Vamshi Kiran Buyakar" href="http://tulja.github.io/feed.xml">
+</head>
+
+
+  <body>
+
+    <header class="site-header">
+
+  <div class="wrapper">
+
+    <a class="site-title" href="/">Tulja Vamshi Kiran Buyakar</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        
+          
+          <a class="page-link" href="/about/">About</a>
+          
+        
+          
+        
+          
+        
+          
+        
+          
+          <a class="page-link" href="/projects/">Projects</a>
+          
+        
+          
+          <a class="page-link" href="/publications/">Publications</a>
+          
+        
+          
+          <a class="page-link" href="/resume/">Resume</a>
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrapper">
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title" itemprop="name headline">Building a Web-based Honeypot & Reporting Threat Intelligence</h1>
+    <p class="post-meta"><time datetime="2019-08-18T11:47:43+05:30" itemprop="datePublished">Aug 18, 2019</time></p>
+  </header>
+
+  <div class="post-content" itemprop="articleBody">
+    <h2 id="introduction">Introduction</h2>
+
+<p>The goal of this Proof of Concept to show the flow level bandwidth provisioning using the OvS Switch. 
+We achieve it using below steps.
+*    Docker Networking using OVS 
+*    Creation of OVS Queues 
+*    Adding the Flow Rules
+*    Test the Bandwidth Provisioning</p>
+
+<p>In this setup we have two Docker Containers. We attach the two docker containers to OVS and test the bandwidth provisioning using them.</p>
+
+<p><img src="/assets/flowOVS.jpg?raw=true" alt="Alt text" title="OVS Setup" /></p>
+
+<h3 id="dependencies-for-the-setup">Dependencies for the setup</h3>
+<ul>
+  <li>Ubuntu 16.04</li>
+  <li>Docker</li>
+</ul>
+
+<h3 id="docker-networking-using-ovs">Docker Networking using OvS</h3>
+
+<p>First of all we need to create the OVS based Docker Networking.</p>
+
+<ul>
+  <li>Install OVS and ovs-docker utility</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">sudo</span> <span class="n">su</span>
+<span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="o">-</span><span class="n">y</span> <span class="n">install</span> <span class="n">openvswitch</span><span class="o">-</span><span class="n">switch</span>
+<span class="n">cd</span> <span class="sr">/usr/</span><span class="n">bin</span>
+<span class="n">wget</span> <span class="n">https</span><span class="ss">:/</span><span class="o">/</span><span class="n">raw</span><span class="p">.</span><span class="nf">githubusercontent</span><span class="p">.</span><span class="nf">com</span><span class="o">/</span><span class="n">openvswitch</span><span class="o">/</span><span class="n">ovs</span><span class="o">/</span><span class="n">master</span><span class="o">/</span><span class="n">utilities</span><span class="o">/</span><span class="n">ovs</span><span class="o">-</span><span class="n">docker</span>
+<span class="n">chmod</span> <span class="n">a</span><span class="o">+</span><span class="n">rwx</span> <span class="n">ovs</span><span class="o">-</span><span class="n">docker</span></code></pre></figure>
+
+<ul>
+  <li>Create the OVS bridge</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">ovs</span><span class="o">-</span><span class="n">vsctl</span> <span class="n">add</span><span class="o">-</span><span class="n">br</span> <span class="n">ovs</span><span class="o">-</span><span class="n">br1</span>
+<span class="n">ovs</span><span class="o">-</span><span class="n">vsctl</span> <span class="n">show</span></code></pre></figure>
+
+<ul>
+  <li>Configure the OVS-br and create two ubuntu Docker Containers without network</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">ifconfig</span> <span class="n">ovs</span><span class="o">-</span><span class="n">br1</span> <span class="mi">10</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">1</span> <span class="n">netmask</span> <span class="mi">255</span><span class="o">.</span><span class="mi">255</span><span class="o">.</span><span class="mi">255</span><span class="o">.</span><span class="mi">0</span> <span class="n">up</span>
+<span class="n">docker</span> <span class="n">run</span> <span class="o">-</span><span class="n">ti</span> <span class="o">-</span><span class="n">d</span> <span class="o">--</span><span class="n">rm</span> <span class="o">--</span><span class="nb">name</span> <span class="n">cont1</span> <span class="o">--</span><span class="n">cap</span><span class="o">-</span><span class="n">add</span> <span class="no">NET_ADMIN</span> <span class="o">--</span><span class="n">net</span><span class="o">=</span><span class="n">none</span> <span class="o">-</span><span class="n">v</span> <span class="o">~</span><span class="sr">/multi_threaded_iperf/</span><span class="ss">:/</span><span class="n">code</span> <span class="n">btvk</span><span class="o">/</span><span class="n">delay_ns</span>
+<span class="n">docker</span> <span class="n">run</span> <span class="o">-</span><span class="n">ti</span> <span class="o">-</span><span class="n">d</span> <span class="o">--</span><span class="n">rm</span> <span class="o">--</span><span class="nb">name</span> <span class="n">cont2</span> <span class="o">--</span><span class="n">cap</span><span class="o">-</span><span class="n">add</span> <span class="no">NET_ADMIN</span> <span class="o">--</span><span class="n">net</span><span class="o">=</span><span class="n">none</span> <span class="o">-</span><span class="n">v</span> <span class="o">~</span><span class="sr">/multi_threaded_iperf/</span><span class="ss">:/</span><span class="n">code</span> <span class="n">btvk</span><span class="o">/</span><span class="n">delay_ns</span></code></pre></figure>
+
+<ul>
+  <li>Connect the containers to OVS bridge</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">sudo</span> <span class="n">ovs</span><span class="o">-</span><span class="n">docker</span> <span class="n">add</span><span class="o">-</span><span class="n">port</span> <span class="n">ovs</span><span class="o">-</span><span class="n">br1</span> <span class="n">eth0</span> <span class="n">cont1</span> <span class="o">--</span><span class="n">ipaddress</span><span class="o">=</span><span class="mi">10</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">2</span><span class="o">/</span><span class="mi">24</span> <span class="o">--</span><span class="n">gateway</span><span class="o">=</span><span class="mi">10</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">1</span>
+<span class="n">sudo</span> <span class="n">ovs</span><span class="o">-</span><span class="n">docker</span> <span class="n">add</span><span class="o">-</span><span class="n">port</span> <span class="n">ovs</span><span class="o">-</span><span class="n">br1</span> <span class="n">eth0</span> <span class="n">cont2</span> <span class="o">--</span><span class="n">ipaddress</span><span class="o">=</span><span class="mi">10</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">3</span><span class="o">/</span><span class="mi">24</span> <span class="o">--</span><span class="n">gateway</span><span class="o">=</span><span class="mi">10</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">1</span></code></pre></figure>
+
+<ul>
+  <li>Add NAT Rules (Change your pubintf from “enp0s1” appropriatly)</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">export</span> <span class="n">pubintf</span><span class="o">=</span><span class="n">enp0s1</span>
+<span class="n">export</span> <span class="n">privateintf</span><span class="o">=</span><span class="n">ovs</span><span class="o">-</span><span class="n">br1</span>
+<span class="n">iptables</span> <span class="o">-</span><span class="n">t</span> <span class="n">nat</span> <span class="o">-</span><span class="no">A</span> <span class="no">POSTROUTING</span> <span class="o">-</span><span class="n">o</span> <span class="vg">$pubintf</span> <span class="o">-</span><span class="n">j</span> <span class="no">MASQUERADE</span>
+<span class="n">iptables</span> <span class="o">-</span><span class="no">A</span> <span class="no">FORWARD</span> <span class="o">-</span><span class="n">i</span> <span class="vg">$privateintf</span> <span class="o">-</span><span class="n">j</span> <span class="no">ACCEPT</span>
+<span class="n">iptables</span> <span class="o">-</span><span class="no">A</span> <span class="no">FORWARD</span> <span class="o">-</span><span class="n">i</span> <span class="vg">$privateintf</span> <span class="o">-</span><span class="n">o</span> <span class="vg">$pubintf</span> <span class="o">-</span><span class="n">m</span> <span class="n">state</span> <span class="o">--</span><span class="n">state</span> <span class="no">RELATED</span><span class="p">,</span><span class="no">ESTABLISHED</span> <span class="o">-</span><span class="n">j</span> <span class="no">ACCEPT</span></code></pre></figure>
+
+<ul>
+  <li>Test the connection between two containers connected via OVS bridge using Ping command</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="c1">#log in to cont1 docker </span>
+<span class="n">docker</span> <span class="nb">exec</span> <span class="o">-</span><span class="n">it</span> <span class="n">cont1</span> <span class="n">bash</span>
+<span class="c1">#10.0.0.3 is IP Addr. of cont2  </span>
+<span class="n">ping</span> <span class="mi">10</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">3</span></code></pre></figure>
+
+<h3 id="creation-of-ovs-queues">Creation of OVS Queues</h3>
+
+<ul>
+  <li>We need the OVS port-ids of <strong>cont1</strong> and <strong>cont2</strong> that are connected to <strong>ovs-br1</strong> (See the above figure).</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="c1">#cont1 is the container name</span>
+<span class="c1">#eth0 is the ovs-docker interface in the container</span>
+<span class="n">ovs</span><span class="o">-</span><span class="n">vsctl</span> <span class="o">--</span><span class="n">data</span><span class="o">=</span><span class="n">bare</span> <span class="o">--</span><span class="n">no</span><span class="o">-</span><span class="n">heading</span> <span class="o">--</span><span class="n">columns</span><span class="o">=</span><span class="nb">name</span> <span class="n">find</span> <span class="n">interface</span> <span class="p">\</span>
+             <span class="n">external_ids</span><span class="ss">:container_id</span><span class="o">=</span><span class="s2">"cont1"</span>  <span class="p">\</span>
+             <span class="n">external_ids</span><span class="ss">:container_iface</span><span class="o">=</span><span class="s2">"eth0"</span>
+<span class="c1">#output from above will be the ovs-port-id for cont1. Note it for next step.  </span>
+
+<span class="n">ovs</span><span class="o">-</span><span class="n">vsctl</span> <span class="o">--</span><span class="n">data</span><span class="o">=</span><span class="n">bare</span> <span class="o">--</span><span class="n">no</span><span class="o">-</span><span class="n">heading</span> <span class="o">--</span><span class="n">columns</span><span class="o">=</span><span class="nb">name</span> <span class="n">find</span> <span class="n">interface</span> <span class="p">\</span>
+             <span class="n">external_ids</span><span class="ss">:container_id</span><span class="o">=</span><span class="s2">"cont2"</span>  <span class="p">\</span>
+             <span class="n">external_ids</span><span class="ss">:container_iface</span><span class="o">=</span><span class="s2">"eth0"</span>
+<span class="c1">#output from above will be the ovs-port-id for cont2. Note it for next step.             </span></code></pre></figure>
+
+<ul>
+  <li>Let say we got the below values for ovs-port-ids (from the above step).</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">cont1</span> <span class="n">ovs</span><span class="o">-</span><span class="n">br1</span> <span class="n">e0715799fb694_l</span>
+<span class="n">cont2</span> <span class="n">ovs</span><span class="o">-</span><span class="n">br1</span> <span class="mi">38</span><span class="n">c9206b60f94_l</span></code></pre></figure>
+
+<ul>
+  <li>Now, we create OvS Queues at <strong>ovs-br1</strong>. We create two queues at <em>e0715799fb694_l</em> and <em>38c9206b60f94_l</em> with maximum rates of 30Mbps in one queue and 5Mbps in other queue.</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">ovs</span><span class="o">-</span><span class="n">vsctl</span> <span class="n">set</span> <span class="n">port</span> <span class="n">e0715799fb694_l</span> <span class="n">qos</span><span class="o">=</span><span class="vi">@qos1</span> <span class="o">--</span> <span class="o">--</span><span class="nb">id</span><span class="o">=</span><span class="vi">@qos1</span> <span class="n">create</span> <span class="n">qos</span> <span class="n">type</span><span class="o">=</span><span class="n">linux</span><span class="o">-</span><span class="n">htb</span> <span class="p">\</span>
+    <span class="n">queues</span><span class="p">:</span><span class="mi">0</span><span class="o">=</span><span class="vi">@queue0</span> <span class="n">queues</span><span class="p">:</span><span class="mi">1</span><span class="o">=</span><span class="vi">@queue1</span> <span class="o">--</span> <span class="p">\</span>
+    <span class="o">--</span><span class="nb">id</span><span class="o">=</span><span class="vi">@queue0</span> <span class="n">create</span> <span class="n">queue</span> <span class="n">other</span><span class="o">-</span><span class="n">config</span><span class="ss">:max</span><span class="o">-</span><span class="n">rate</span><span class="o">=</span><span class="mi">30000000</span> <span class="o">--</span> <span class="p">\</span>
+    <span class="o">--</span><span class="nb">id</span><span class="o">=</span><span class="vi">@queue1</span> <span class="n">create</span> <span class="n">queue</span> <span class="n">other</span><span class="o">-</span><span class="n">config</span><span class="ss">:max</span><span class="o">-</span><span class="n">rate</span><span class="o">=</span><span class="mi">5000000</span>
+
+<span class="n">ovs</span><span class="o">-</span><span class="n">vsctl</span> <span class="n">set</span> <span class="n">port</span> <span class="mi">38</span><span class="n">c9206b60f94_l</span> <span class="n">qos</span><span class="o">=</span><span class="vi">@qos2</span> <span class="o">--</span> <span class="o">--</span><span class="nb">id</span><span class="o">=</span><span class="vi">@qos2</span> <span class="n">create</span> <span class="n">qos</span> <span class="n">type</span><span class="o">=</span><span class="n">linux</span><span class="o">-</span><span class="n">htb</span> <span class="p">\</span>
+    <span class="n">queues</span><span class="p">:</span><span class="mi">2</span><span class="o">=</span><span class="vi">@queue2</span> <span class="n">queues</span><span class="p">:</span><span class="mi">3</span><span class="o">=</span><span class="vi">@queue3</span> <span class="o">--</span> <span class="p">\</span>
+    <span class="o">--</span><span class="nb">id</span><span class="o">=</span><span class="vi">@queue2</span> <span class="n">create</span> <span class="n">queue</span> <span class="n">other</span><span class="o">-</span><span class="n">config</span><span class="ss">:max</span><span class="o">-</span><span class="n">rate</span><span class="o">=</span><span class="mi">30000000</span> <span class="o">--</span> <span class="p">\</span>
+    <span class="o">--</span><span class="nb">id</span><span class="o">=</span><span class="vi">@queue3</span> <span class="n">create</span> <span class="n">queue</span> <span class="n">other</span><span class="o">-</span><span class="n">config</span><span class="ss">:max</span><span class="o">-</span><span class="n">rate</span><span class="o">=</span><span class="mi">5000000</span></code></pre></figure>
+
+<h3 id="adding-the-flow-rules">Adding the Flow Rules</h3>
+<ul>
+  <li>To list QoS rules</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">ovs</span><span class="o">-</span><span class="n">vsctl</span> <span class="n">list</span> <span class="n">qos</span></code></pre></figure>
+
+<ul>
+  <li>Use below commands to create flow rules for TCP/UDP ports. If the TCP destination port is 9090, we set the packet to go through queue-0 and if the TCP destination port is 9091, we set the packet to go through queue-1. Else, it goes through the default queue.</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">ovs</span><span class="o">-</span><span class="n">ofctl</span> <span class="n">add</span><span class="o">-</span><span class="n">flow</span> <span class="n">ovs</span><span class="o">-</span><span class="n">br1</span> <span class="n">priority</span><span class="o">=</span><span class="mi">65535</span><span class="p">,</span><span class="n">tcp</span><span class="p">,</span><span class="n">tcp_dst</span><span class="o">=</span><span class="mi">9090</span><span class="p">,</span><span class="n">actions</span><span class="o">=</span><span class="n">set_queue</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span><span class="n">normal</span>
+<span class="n">ovs</span><span class="o">-</span><span class="n">ofctl</span> <span class="n">add</span><span class="o">-</span><span class="n">flow</span> <span class="n">ovs</span><span class="o">-</span><span class="n">br1</span> <span class="n">priority</span><span class="o">=</span><span class="mi">65535</span><span class="p">,</span><span class="n">tcp</span><span class="p">,</span><span class="n">tcp_dst</span><span class="o">=</span><span class="mi">9091</span><span class="p">,</span><span class="n">actions</span><span class="o">=</span><span class="n">set_queue</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">normal</span>
+<span class="n">ovs</span><span class="o">-</span><span class="n">ofctl</span> <span class="n">add</span><span class="o">-</span><span class="n">flow</span> <span class="n">ovs</span><span class="o">-</span><span class="n">br1</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">actions</span><span class="o">=</span><span class="n">normal</span></code></pre></figure>
+
+<ul>
+  <li>To view all added flow rules in a switch</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">ovs</span><span class="o">-</span><span class="n">ofctl</span> <span class="n">dump</span><span class="o">-</span><span class="n">flows</span> <span class="n">ovs</span><span class="o">-</span><span class="n">br1</span></code></pre></figure>
+
+<ul>
+  <li>To delete all flow rules in a switch</li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">ovs</span><span class="o">-</span><span class="n">ofctl</span> <span class="n">del</span><span class="o">-</span><span class="n">flows</span> <span class="n">ovs</span><span class="o">-</span><span class="n">br1</span></code></pre></figure>
+
+<h3 id="test-the-bandwidth-provisioning">Test the Bandwidth Provisioning</h3>
+<ul>
+  <li>Execute the <strong>cont2</strong></li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">docker</span> <span class="nb">exec</span> <span class="o">-</span><span class="n">it</span> <span class="n">cont2</span> <span class="n">bash</span>
+<span class="n">apt</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">iperf3</span>
+<span class="n">iperf3</span> <span class="o">-</span><span class="n">s</span> <span class="o">-</span><span class="nb">p</span> <span class="mi">9090</span></code></pre></figure>
+
+<ul>
+  <li>Parallely in another terminal execute <strong>cont1</strong></li>
+</ul>
+
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">docker</span> <span class="nb">exec</span> <span class="o">-</span><span class="n">it</span> <span class="n">cont1</span> <span class="n">bash</span>
+<span class="n">apt</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">iperf3</span>
+<span class="n">iperf3</span> <span class="o">-</span><span class="n">c</span> <span class="mi">10</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">0</span><span class="o">.</span><span class="mi">3</span> <span class="o">-</span><span class="nb">p</span> <span class="mi">9090</span></code></pre></figure>
+
+<ul>
+  <li>
+    <p>Observe the iperf3 sender throughput at <strong>cont1</strong> after  iperf session. It should be nearly 30 Mbps. If we repeat the above steps by changing the iperf3 port to 9091, we should see iperf3 sender throughput at <strong>cont1</strong> after  iperf session to be nearly 5Mbps.</p>
+  </li>
+  <li>
+    <p><strong>References</strong></p>
+    <ul>
+      <li>https://developer.ibm.com/recipes/tutorials/using-ovs-bridge-for-docker-networking/</li>
+      <li>http://docs.openvswitch.org/en/latest/faq/qos/</li>
+    </ul>
+  </li>
+</ul>
+
+
+  </div>
+
+</article>
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrapper">
+
+    <h2 class="footer-heading">Tulja Vamshi Kiran Buyakar</h2>
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Tulja Vamshi Kiran Buyakar</li>
+          <li><a href="mailto:btuljavamshikiran@gmail.com">btuljavamshikiran@gmail.com</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <ul class="social-media-list">
+          
+          <li>
+            <a href="https://github.com/tulja"><span class="icon icon--github"><svg viewBox="0 0 16 16"><path fill="#828282" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"/></svg>
+</span><span class="username">tulja</span></a>
+
+          </li>
+          
+
+          
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-3">
+        <p></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+
+  </body>
+
+</html>

@@ -5,9 +5,704 @@
     <description></description>
     <link>http://tulja.github.io/</link>
     <atom:link href="http://tulja.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sun, 18 Aug 2019 13:44:42 +0530</pubDate>
-    <lastBuildDate>Sun, 18 Aug 2019 13:44:42 +0530</lastBuildDate>
+    <pubDate>Tue, 20 Aug 2019 09:24:59 +0530</pubDate>
+    <lastBuildDate>Tue, 20 Aug 2019 09:24:59 +0530</lastBuildDate>
     <generator>Jekyll v3.0.1</generator>
+    
+      <item>
+        <title>Gsoc19</title>
+        <description>&lt;h2 id=&quot;building-honeytraps-and-reporting-threat-intelligence&quot;&gt;Building Honeytraps and Reporting Threat Intelligence&lt;/h2&gt;
+
+&lt;p&gt;The goal of this PoC to set the ModSecurity based Honeytraps. In this PoC, we will consider different such honeytraps and gather information about the attacker.&lt;/p&gt;
+
+&lt;p&gt;There are three phases of recognizing the attack.
+*    Luring the Attacker with a bait
+*    Identifying the Attacker from his/her actions
+*	 Gathering the Information about the Attacker (From the logs)&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Bait&lt;/th&gt;
+      &lt;th&gt;Identification of Attacker&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake Listen Ports&lt;/td&gt;
+      &lt;td&gt;If the web client is trying to access these fake ports, it will tagged as malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake entry in robots.txt&lt;/td&gt;
+      &lt;td&gt;If it accesses the restricted location,  it will tagged as malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake HTML comments&lt;/td&gt;
+      &lt;td&gt;If it accesses the Debugging information from HTML comments, it can be marked malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake Hidden Form Fields&lt;/td&gt;
+      &lt;td&gt;If it manipulates the hidden form field(s) set by the web server, it is tagged malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake Cookie Data&lt;/td&gt;
+      &lt;td&gt;If it manipulates the cookies set by the web server, it is tagged malicious&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;Basically we will lay honeytraps using the Core Rule Set (CRS) rules of ModSecurity. ModSecurity is Web Application Firewall which runs on the web server. We gather the attack information using the Audit logs of ModSecurity. In order to handle the audit logs in a structured manner, we send the logs to Elasticsearch Logstash Kibana(ELK) Stack. ELK provides an efficient way for handling the logs and visualizing them. At ELK, we filter the relevant logs from the non-relevant ones. All the relevant log information is reported to Malware Information Sharing Platform (MISP).&lt;/p&gt;
+
+&lt;p&gt;In this setup we have three Docker Containers. Each one for ModSecurity+Apache Web Server, ELK and MISP (as shown in below architecture diagram).&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;./honeytrap_arch.jpg?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Building Honeytraps and Reporing Threat Intelligence&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;A step by step video demonstration is shown at https://www.youtube.com/watch?v=uE-uYwqEZYA&lt;/p&gt;
+
+&lt;h3 id=&quot;step-by-step-instructions&quot;&gt;Step by Step Instructions&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Dependencies for the setup
+    &lt;ul&gt;
+      &lt;li&gt;Docker Installed on your Host machine&lt;/li&gt;
+      &lt;li&gt;Atleast 8GB of RAM on your Host machine&lt;/li&gt;
+      &lt;li&gt;Ports listed in docker-compose.yml should be available free in host machine&lt;/li&gt;
+      &lt;li&gt;If ports are not free, please change to appropriate values in docker-compose.yml&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Clone this repository in your Host Machine
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+cd ~
+git clone https://github.com/OWASP/Honeypot-Project.git
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Pull the MISP docker image from Dockerhub.
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+docker pull harvarditsecurity/misp
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Make sure the MISP image is listed on available docker images.
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+docker images
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Create a directory for MISP and  export a variable &lt;code class=&quot;highlighter-rouge&quot;&gt;dockerroot&lt;/code&gt;  that specifies the path of created directory.
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+mkdir ~/misp
+export dockerroot=~/misp
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Create a Database directory and initialize Database.
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+mkdir -p $dockerroot/misp-db
+docker run -it --rm  -v $dockerroot/misp-db:/var/lib/mysql harvarditsecurity/misp /init-db
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Start the ModSecurity and ELK containers by running the below commands
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+cd Honeypot-Project/honeytraps/
+docker-compose build
+docker-compose up -d
+&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Start the MISP Server
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+docker run -it -d -p 443:443 -p 80:80  -p 3306:3306 -v $dockerroot/misp-db:/var/lib/mysql  harvarditsecurity/misp
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Check the status of containers 
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+docker ps
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Access Web URL of MISP and change the password.
+```
+Go to: https://localhost&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Login: admin@admin.test
+Password: admin
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+* Pump some web traffic using curl
+&lt;/code&gt;
+curl localhost:9091/index.html?exec=/bin/bash
+curl ‘http://localhost:9091/?q=”&amp;gt;&lt;script&gt;alert(1)&lt;/script&gt;’
+```
+*  Wait for a minute or two for the logs to reach the ELK&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;Open http://localhost:5601/app/kibana in your browser&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Go to Management in Kibana Dashboard and click Saved Objects
+&lt;img src=&quot;./screenshots/savedObj1.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Saved Object Creation&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Click on Import and upload the export.json file as shown in below figure
+&lt;img src=&quot;./screenshots/savedObj2.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Saved Object Creation&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;To report the relevant log information to MISP, we run the &lt;code class=&quot;highlighter-rouge&quot;&gt;kibana-client.py&lt;/code&gt; at the ELK container, which sends information using the PyMISP API.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;To create events using PyMISP we need an API key. Go to Automation page of MISP (https://localhost) and copy the key (highlighted in the below image) and paste in &lt;code class=&quot;highlighter-rouge&quot;&gt;misp_key&lt;/code&gt; variable of &lt;code class=&quot;highlighter-rouge&quot;&gt;keys.py&lt;/code&gt; and also update the &lt;code class=&quot;highlighter-rouge&quot;&gt;misp_url&lt;/code&gt;. 
+&lt;img src=&quot;./screenshots/pymisp-key.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;API Key for PyMISP&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;We run the &lt;code class=&quot;highlighter-rouge&quot;&gt;kibana-client.py&lt;/code&gt; in a Python3 virtual environment. Run the below commands to do so. 
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+docker exec elk_app pipenv install elasticsearch pymisp
+docker exec -d elk_app pipenv run python3 kibana-client.py
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HoneyTrap-1 (Adding Fake HTTP Ports for Listening)&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;In this we will use additional ports of 8000,8080,8888 for listening&lt;/li&gt;
+      &lt;li&gt;All the traffic that is received on these port is tagged malicious&lt;/li&gt;
+      &lt;li&gt;Open the browser and enter the HostIP with any of above three ports (like shown in the image below)
+&lt;img src=&quot;./screenshots/honeytrap1_bait.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Fake Ports&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;Alternatively run the below command from terminal
+ &lt;code class=&quot;highlighter-rouge&quot;&gt;
+ curl &amp;lt;Host-IP&amp;gt;:8888/index.html
+&lt;/code&gt;&lt;/li&gt;
+      &lt;li&gt;Navigate to Discover Menu on the Left Hand Side and Honeytrap-1 Logs can be visualized in Kibana Dashboard 
+&lt;img src=&quot;./screenshots/honeytrap1_logs.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Visualizing the Honeytrap-1 Logs&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HoneyTrap-2 (Adding Fake Disallow Entry in robots.txt file)&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;Every website maintains its robots.txt to advise the allowed and disallowed entries to the crawler&lt;/li&gt;
+      &lt;li&gt;Based on these entries, crawler should not access the Disallowed entries, but the Disallow is just a suggestion in the robots.txt, so we will add a fake Disallow entry in the robots.txt file&lt;/li&gt;
+      &lt;li&gt;Whoever tries to access this location is marked malicious&lt;/li&gt;
+      &lt;li&gt;We can also have a fake authentication on this fake location to get the username/password pairs from the attacker&lt;/li&gt;
+      &lt;li&gt;Open the robots.txt page and try to access Fake Disallowed robots.txt Entry (like shown in the image below)
+&lt;img src=&quot;./screenshots/honeytrap2_bait.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Fake Disallow robots.txt Entry&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;Access the fake location mentioned in the robots.txt file 
+&lt;img src=&quot;./screenshots/honeytrap2_bait_2.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Fake Disallow robots.txt Location + Authentication &quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;In the below log screenshot we can see that Attacker has used the Admin as Username and Password as “Password” to get access to the fake location mentioned in robots.txt, all the tries (of username/password) of attacker are logged at ELK
+&lt;img src=&quot;./screenshots/honeytrap2_logs.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Visualizing the Honeytrap-2 Logs&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HoneyTrap-3 (Adding Fake HTML Comments in the login page)&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;In this trap, we will add a fake HTML comment in the login page, this fake comment redirects the attacker to some other location. Whoever tries to access this location is tagged malicious&lt;/li&gt;
+      &lt;li&gt;Open the Host-IP:9091/login.html in browser and try to access comments of page (like shown in the image below). The highlighted line in the below picture shows the fake HTML comment added by the ModSecurity
+&lt;img src=&quot;./screenshots/honeytrap3_bait.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Fake HTML comment&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;Try to access the location mentioned in the HTML comment
+&lt;img src=&quot;./screenshots/honeytrap3_bait_2.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing HTML comment specified location&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;In the below log screenshot we can see that Attacker is tagged
+&lt;img src=&quot;./screenshots/honeytrap3_logs.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Visualizing the Honeytrap-3 Logs&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HoneyTrap-4 (Adding Fake Hidden Form Fields)&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;HTML hidden form fields are just like normal form fields, except for one distinct difference: The browser doesn’t display them to the user. Hidden fields are used as a mechanism to pass data from one request to another, and their contents are not supposed to be altered&lt;/li&gt;
+      &lt;li&gt;This is how the raw HTML hidden form field looks in the source&lt;/li&gt;
+      &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;input type=&quot;hidden&quot; value=&quot;front&quot; name=&quot;context&quot;&amp;gt;&lt;/code&gt;&lt;/li&gt;
+      &lt;li&gt;Just as we did with adding fake HTML comments, we can use the same methodology to inject fake HTML hidden form fields. The key to this technique is the closing &lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;/form&amp;gt;&lt;/code&gt; HTML tag. We will inject our honeytrap data just before it.&lt;/li&gt;
+      &lt;li&gt;Whoever tries to manipulate this form field is tagged malicious&lt;/li&gt;
+      &lt;li&gt;Open the Host-IP:9091 in browser and try to access hidden form field of page (like shown in the image below). 
+ The highlighted line in the below picture shows the fake HTML comment added by the ModSecurity
+&lt;img src=&quot;./screenshots/honeytrap4_bait.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Fake Hidden Form Field&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;Change the hidden field value to true, put some data in the form and submit it
+&lt;img src=&quot;./screenshots/honeytrap4_bait_2.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Changing the hidden form field value&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;In the below log screenshot we can see that Attacker is tagged at ELK
+&lt;img src=&quot;./screenshots/honeytrap4_logs.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Visualizing the Honeytrap-4 Logs&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HoneyTrap-5 (Adding Fake Cookies)&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;The HTTP protocol has no built-in session awareness. This means that each transaction is independent from the others. The application, therefore, needs a method to track who someone is and what actions he has previously taken (for instance, in a multistep process). Cookies were created precisely for this purpose&lt;/li&gt;
+      &lt;li&gt;The application issues &lt;code class=&quot;highlighter-rouge&quot;&gt;Set-Cookie&lt;/code&gt; response header data to the client web browser.&lt;/li&gt;
+      &lt;li&gt;Much like attackers take aim at parameter payloads, they also attempt to alter cookie data that the application hands out. This can be done with the tools like http://www.editthiscookie.com/&lt;/li&gt;
+      &lt;li&gt;Open the Host-IP:9091 in browser and open the site information to access the cookie information (like shown in the image below). 
+ The highlighted line in the below picture shows the cookie data is &lt;code class=&quot;highlighter-rouge&quot;&gt;Admin:0&lt;/code&gt;
+&lt;img src=&quot;./screenshots/honeytrap5_bait.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Cookies&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;We try change the cookie data using &lt;code class=&quot;highlighter-rouge&quot;&gt;editthiscookie&lt;/code&gt; chrome-extension (you can others similar to this). We try to change &lt;code class=&quot;highlighter-rouge&quot;&gt;Admin:0&lt;/code&gt; to &lt;code class=&quot;highlighter-rouge&quot;&gt;Admin:5&lt;/code&gt; after that fill the form and submit the data 
+&lt;img src=&quot;./screenshots/honeytrap5_bait_2.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Changing the cookie value&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;In the below log screenshot we can see that Attacker is tagged at ELK who changed the cookie value
+&lt;img src=&quot;./screenshots/honeytrap4_logs.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Visualizing the Honeytrap-5 Logs&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Please check the modsecurity conf. file for more information about the honeytraps.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Dashboard Visualization&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;Click on Dashboard from left hand side and click on Honeytrap Dashboard then you will see various information gathered through all honeytraps
+&lt;img src=&quot;./screenshots/savedObj3.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Saved Object Creation&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Threat Reporting at MISP&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;All the information gathered through all honeytraps is automically reported at MISP dashboard. Go to MISP URL (https://localhost) for viewing them.
+&lt;img src=&quot;./screenshots/events.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Honeytrap Events at MISP&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;The events and tags are auto-generated from &lt;code class=&quot;highlighter-rouge&quot;&gt;kibana-client.py&lt;/code&gt;
+&lt;img src=&quot;./screenshots/tags.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Honeytrap Events at MISP&quot; /&gt;
+&lt;img src=&quot;./screenshots/event-details.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Honeytrap Events at MISP&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Issues&lt;/strong&gt;:
+    &lt;ul&gt;
+      &lt;li&gt;max virtual memory areas vm.max_map_count [65530] is too low, increase to at least [262144], Run the below command 
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+   sudo sysctl -w vm.max_map_count=262144
+&lt;/code&gt;&lt;/li&gt;
+      &lt;li&gt;If there is problem running with logstash, try with 
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+ /opt/logstash/bin/logstash --path.data /tmp/logstash/data -e filebeat_logstash.conf
+&lt;/code&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;References&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;Web Application Defender’s Cookbook: Battling Hackers and Protecting Users&lt;/li&gt;
+      &lt;li&gt;http://www.editthiscookie.com/&lt;/li&gt;
+      &lt;li&gt;https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/detecting-malice-with-modsecurity-honeytraps/&lt;/li&gt;
+      &lt;li&gt;https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/setting-honeytraps-with-modsecurity-adding-fake-hidden-form-fields/&lt;/li&gt;
+      &lt;li&gt;https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/setting-honeytraps-with-modsecurity-adding-fake-cookies/&lt;/li&gt;
+      &lt;li&gt;https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/setting-honeytraps-with-modsecurity-adding-fake-robotstxt-disallow-entries/&lt;/li&gt;
+      &lt;li&gt;https://logz.io/learn/complete-guide-elk-stack/&lt;/li&gt;
+      &lt;li&gt;https://misp-project.org&lt;/li&gt;
+      &lt;li&gt;https://github.com/harvard-itsecurity/docker-misp&lt;/li&gt;
+      &lt;li&gt;https://pymisp.readthedocs.io/&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+</description>
+        <pubDate>Tue, 20 Aug 2019 00:00:00 +0530</pubDate>
+        <link>http://tulja.github.io/2019/08/20/GSoC19.html</link>
+        <guid isPermaLink="true">http://tulja.github.io/2019/08/20/GSoC19.html</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>Building a Web-based Honeypot &amp; Reporting Threat Intelligence.</title>
+        <description>&lt;table&gt;
+    &lt;tr&gt;
+        &lt;td&gt;&lt;img src=&quot;/assets/gsoc19.png&quot; width=&quot;300&quot; /&gt;&lt;/td&gt;
+        &lt;td&gt;&lt;img src=&quot;/assets/owasp.jpg&quot; width=&quot;400&quot; /&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+&lt;/table&gt;
+
+&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
+
+&lt;p&gt;I’m a Google Summer of Code-2019 student for the OWASP organization working on the OWASP Honeypot project. My project was to build an automated web-based Honeypots using the ModSecurity, a Web Application Firewall (WAF) and reporting the information to Malware Information Sharing Platform (MISP).&lt;/p&gt;
+
+&lt;p&gt;First and foremost, I would like to thank my mentors &lt;a href=&quot;https://aru.ac.uk/people/adrian-winckles&quot;&gt;Adrian Winckles&lt;/a&gt; &amp;amp; &lt;a href=&quot;https://www.fing.edu.uy/~fzipi/&quot;&gt;Felipe Zipitría&lt;/a&gt; and the whole OWASP community, in general, for letting me work on this fantastic project.&lt;/p&gt;
+
+&lt;h2 id=&quot;motivation-behind-the-project&quot;&gt;Motivation Behind the Project&lt;/h2&gt;
+
+&lt;p&gt;The purpose of this project is to capture intelligence on attacker activity against web applications and utilize this intelligence as ways to protect software against attacks. We gather the attack information by laying the honeypots using the web application firewalls. With enough honeypots globally distributed, we will be in a position to aggregate attack techniques to better understand and protect against the methods used by attackers.&lt;/p&gt;
+
+&lt;h2 id=&quot;high-level-architecture&quot;&gt;High-Level Architecture&lt;/h2&gt;
+
+&lt;p&gt;The overall design consists of mainly three modules, which are Honeypot software, Collection software, and Community software.
+&lt;br /&gt;
+&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/honeytrap_arch.jpg?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Building Honeytraps and Reporting Threat Intelligence&quot; /&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;strong&gt;Honeypot software&lt;/strong&gt;: This modules lays the honeytrap and lures the Attacker to gather information about the Attacker. ModSecurity is used for laying the honeytraps.&lt;/p&gt;
+
+    &lt;ul&gt;
+      &lt;li&gt;We lay honeytraps using the Core Rule Set (CRS) rules of ModSecurity. We collect the attack information using the Audit logs of ModSecurity. Once the logs are generated, they are sent to Collection software (ELK Stack) for further processing. Shipping the logs is done with the help of Filebeat. The ModSecurity Audit Collector (mlogc) is another way of exporting the logs to ELK Stack. In this project, we have both forms of shipping. Any method can be chosen appropriately.&lt;/li&gt;
+      &lt;li&gt;There are three phases of recognizing the attack.
+        &lt;ul&gt;
+          &lt;li&gt;Luring the Attacker with a bait&lt;/li&gt;
+          &lt;li&gt;Identifying the Attacker from his/her actions&lt;/li&gt;
+          &lt;li&gt;Gathering the information about the Attacker (From the logs)&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Bait&lt;/th&gt;
+      &lt;th&gt;Identification of Attacker&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake Listen Ports&lt;/td&gt;
+      &lt;td&gt;If the web client is trying to access these fake ports, it will tagged as malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake entry in robots.txt&lt;/td&gt;
+      &lt;td&gt;If it accesses the restricted location,  it will tagged as malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake HTML comments&lt;/td&gt;
+      &lt;td&gt;If it accesses the Debugging information from HTML comments, it can be marked malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake Hidden Form Fields&lt;/td&gt;
+      &lt;td&gt;If it manipulates the hidden form field(s) set by the web server, it is tagged malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake Cookie Data&lt;/td&gt;
+      &lt;td&gt;If it manipulates the cookies set by the web server, it is tagged malicious&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;Collection software&lt;/strong&gt;: This module processes the logs that are incoming to the system. It filters out the attack information and sends them to community software. Elastic Search Logstash Kibana (ELK) stack is used as log collection software. ELK Stack processes the logs and visualizes the attack information. The screenshot shows the attack information visualization.
+    &lt;ul&gt;
+      &lt;li&gt;The Collection software also runs the periodic MISP client which periodically collects the honeytrap information and automatically reports it to the Community software.&lt;/li&gt;
+      &lt;li&gt;The honeytrap information is sent along with relevant tags by the MISP client.&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/kibanaDashboard.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Honeypot Dashboard&quot; /&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;Community software&lt;/strong&gt;: It maintains the attack information from various sources and reports to the community. The Malware Information Sharing Platform (MISP) is used as the community software. Various details about the attack such as Threat level, Analysis done, Timestamp, Tags, etc. are reported at MISP. Below screenshot shows the details of MISP event.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/mispEvent.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;MISP Event&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;All the above three modules are realized as Docker containers. Currently, all of them are running on a single host. With the proper configuration, they can be run on multiple nodes as well. The demonstration of the project using the Docker platform is shown in the below video.&lt;/p&gt;
+
+&lt;center&gt;
+&lt;iframe width=&quot;560&quot; height=&quot;315&quot; src=&quot;https://www.youtube.com/embed/uE-uYwqEZYA&quot; frameborder=&quot;0&quot; allow=&quot;autoplay; encrypted-media&quot; allowfullscreen=&quot;&quot;&gt;&lt;/iframe&gt;    
+&lt;/center&gt;
+
+&lt;h2 id=&quot;future-roadmap&quot;&gt;Future RoadMap&lt;/h2&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Use &lt;a href=&quot;http://packer.io/&quot;&gt;Packer&lt;/a&gt; for generating the VM images for the above three modules.&lt;/li&gt;
+  &lt;li&gt;Machine Learning based approach to automatically update the rule set upon cyber threat intelligence received.&lt;/li&gt;
+  &lt;li&gt;Add more honeytraps using ModSecurity rules.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;relevant-links&quot;&gt;Relevant Links&lt;/h2&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;Setup Instructions&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href=&quot;https://github.com/owasp/Honeypot-Project/tree/master/honeytraps&quot;&gt;https://github.com/owasp/Honeypot-Project/tree/master/honeytraps&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://www.youtube.com/watch?v=uE-uYwqEZYA&quot;&gt;https://www.youtube.com/watch?v=uE-uYwqEZYA&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Pull Requests Created&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href=&quot;https://github.com/OWASP/Honeypot-Project/pull/11&quot;&gt;https://github.com/OWASP/Honeypot-Project/pull/11&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://github.com/OWASP/Honeypot-Project/pull/12&quot;&gt;https://github.com/OWASP/Honeypot-Project/pull/12&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://github.com/OWASP/Honeypot-Project/pull/14&quot;&gt;https://github.com/OWASP/Honeypot-Project/pull/14&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://github.com/OWASP/Honeypot-Project/pull/15&quot;&gt;https://github.com/OWASP/Honeypot-Project/pull/15&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;GSoC Proposal&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href=&quot;https://docs.google.com/document/d/1nyXuuS90TAy-UyeCE3vsoR7V5fUQ2adbxguEWdKjbiQ&quot;&gt;GSoC 2019 OWASP Honeypot Proposal&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+</description>
+        <pubDate>Sun, 18 Aug 2019 11:47:43 +0530</pubDate>
+        <link>http://tulja.github.io/blogs/2019/08/18/gsocPost.html</link>
+        <guid isPermaLink="true">http://tulja.github.io/blogs/2019/08/18/gsocPost.html</guid>
+        
+        
+        <category>blogs</category>
+        
+      </item>
+    
+      <item>
+        <title>Web Based Honeypots</title>
+        <description>&lt;h2 id=&quot;building-honeytraps-and-reporting-threat-intelligence&quot;&gt;Building Honeytraps and Reporting Threat Intelligence&lt;/h2&gt;
+
+&lt;p&gt;The goal of this PoC to set the ModSecurity based Honeytraps. In this PoC, we will consider different such honeytraps and gather information about the attacker.&lt;/p&gt;
+
+&lt;p&gt;There are three phases of recognizing the attack.
+*    Luring the Attacker with a bait
+*    Identifying the Attacker from his/her actions
+*	 Gathering the Information about the Attacker (From the logs)&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Bait&lt;/th&gt;
+      &lt;th&gt;Identification of Attacker&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake Listen Ports&lt;/td&gt;
+      &lt;td&gt;If the web client is trying to access these fake ports, it will tagged as malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake entry in robots.txt&lt;/td&gt;
+      &lt;td&gt;If it accesses the restricted location,  it will tagged as malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake HTML comments&lt;/td&gt;
+      &lt;td&gt;If it accesses the Debugging information from HTML comments, it can be marked malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake Hidden Form Fields&lt;/td&gt;
+      &lt;td&gt;If it manipulates the hidden form field(s) set by the web server, it is tagged malicious&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Adding Fake Cookie Data&lt;/td&gt;
+      &lt;td&gt;If it manipulates the cookies set by the web server, it is tagged malicious&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;Basically we will lay honeytraps using the Core Rule Set (CRS) rules of ModSecurity. ModSecurity is Web Application Firewall which runs on the web server. We gather the attack information using the Audit logs of ModSecurity. In order to handle the audit logs in a structured manner, we send the logs to Elasticsearch Logstash Kibana(ELK) Stack. ELK provides an efficient way for handling the logs and visualizing them. At ELK, we filter the relevant logs from the non-relevant ones. All the relevant log information is reported to Malware Information Sharing Platform (MISP).&lt;/p&gt;
+
+&lt;p&gt;In this setup we have three Docker Containers. Each one for ModSecurity+Apache Web Server, ELK and MISP (as shown in below architecture diagram).&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/honeytrap_arch.jpg?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Building Honeytraps and Reporing Threat Intelligence&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;A step by step video demonstration is shown at https://www.youtube.com/watch?v=uE-uYwqEZYA&lt;/p&gt;
+
+&lt;h3 id=&quot;step-by-step-instructions&quot;&gt;Step by Step Instructions&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Dependencies for the setup
+    &lt;ul&gt;
+      &lt;li&gt;Docker Installed on your Host machine&lt;/li&gt;
+      &lt;li&gt;Atleast 8GB of RAM on your Host machine&lt;/li&gt;
+      &lt;li&gt;Ports listed in docker-compose.yml should be available free in host machine&lt;/li&gt;
+      &lt;li&gt;If ports are not free, please change to appropriate values in docker-compose.yml&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Clone this repository in your Host Machine
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+cd ~
+git clone https://github.com/OWASP/Honeypot-Project.git
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Pull the MISP docker image from Dockerhub.
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+docker pull harvarditsecurity/misp
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Make sure the MISP image is listed on available docker images.
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+docker images
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Create a directory for MISP and  export a variable &lt;code class=&quot;highlighter-rouge&quot;&gt;dockerroot&lt;/code&gt;  that specifies the path of created directory.
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+mkdir ~/misp
+export dockerroot=~/misp
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Create a Database directory and initialize Database.
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+mkdir -p $dockerroot/misp-db
+docker run -it --rm  -v $dockerroot/misp-db:/var/lib/mysql harvarditsecurity/misp /init-db
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Start the ModSecurity and ELK containers by running the below commands
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+cd Honeypot-Project/honeytraps/
+docker-compose build
+docker-compose up -d
+&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Start the MISP Server
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+docker run -it -d -p 443:443 -p 80:80  -p 3306:3306 -v $dockerroot/misp-db:/var/lib/mysql  harvarditsecurity/misp
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Check the status of containers 
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+docker ps
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Access Web URL of MISP and change the password.
+```
+Go to: https://localhost&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Login: admin@admin.test
+Password: admin
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+* Pump some web traffic using curl
+&lt;/code&gt;
+curl localhost:9091/index.html?exec=/bin/bash
+curl ‘http://localhost:9091/?q=”&amp;gt;&lt;script&gt;alert(1)&lt;/script&gt;’
+```
+*  Wait for a minute or two for the logs to reach the ELK&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;Open http://localhost:5601/app/kibana in your browser&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Go to Management in Kibana Dashboard and click Saved Objects
+&lt;img src=&quot;./screenshots/savedObj1.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Saved Object Creation&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Click on Import and upload the export.json file as shown in below figure
+&lt;img src=&quot;./screenshots/savedObj2.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Saved Object Creation&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;To report the relevant log information to MISP, we run the &lt;code class=&quot;highlighter-rouge&quot;&gt;kibana-client.py&lt;/code&gt; at the ELK container, which sends information using the PyMISP API.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;To create events using PyMISP we need an API key. Go to Automation page of MISP (https://localhost) and copy the key (highlighted in the below image) and paste in &lt;code class=&quot;highlighter-rouge&quot;&gt;misp_key&lt;/code&gt; variable of &lt;code class=&quot;highlighter-rouge&quot;&gt;keys.py&lt;/code&gt; and also update the &lt;code class=&quot;highlighter-rouge&quot;&gt;misp_url&lt;/code&gt;. 
+&lt;img src=&quot;./screenshots/pymisp-key.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;API Key for PyMISP&quot; /&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;We run the &lt;code class=&quot;highlighter-rouge&quot;&gt;kibana-client.py&lt;/code&gt; in a Python3 virtual environment. Run the below commands to do so. 
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+docker exec elk_app pipenv install elasticsearch pymisp
+docker exec -d elk_app pipenv run python3 kibana-client.py
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HoneyTrap-1 (Adding Fake HTTP Ports for Listening)&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;In this we will use additional ports of 8000,8080,8888 for listening&lt;/li&gt;
+      &lt;li&gt;All the traffic that is received on these port is tagged malicious&lt;/li&gt;
+      &lt;li&gt;Open the browser and enter the HostIP with any of above three ports (like shown in the image below)
+&lt;img src=&quot;./screenshots/honeytrap1_bait.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Fake Ports&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;Alternatively run the below command from terminal
+ &lt;code class=&quot;highlighter-rouge&quot;&gt;
+ curl &amp;lt;Host-IP&amp;gt;:8888/index.html
+&lt;/code&gt;&lt;/li&gt;
+      &lt;li&gt;Navigate to Discover Menu on the Left Hand Side and Honeytrap-1 Logs can be visualized in Kibana Dashboard 
+&lt;img src=&quot;./screenshots/honeytrap1_logs.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Visualizing the Honeytrap-1 Logs&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HoneyTrap-2 (Adding Fake Disallow Entry in robots.txt file)&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;Every website maintains its robots.txt to advise the allowed and disallowed entries to the crawler&lt;/li&gt;
+      &lt;li&gt;Based on these entries, crawler should not access the Disallowed entries, but the Disallow is just a suggestion in the robots.txt, so we will add a fake Disallow entry in the robots.txt file&lt;/li&gt;
+      &lt;li&gt;Whoever tries to access this location is marked malicious&lt;/li&gt;
+      &lt;li&gt;We can also have a fake authentication on this fake location to get the username/password pairs from the attacker&lt;/li&gt;
+      &lt;li&gt;Open the robots.txt page and try to access Fake Disallowed robots.txt Entry (like shown in the image below)
+&lt;img src=&quot;./screenshots/honeytrap2_bait.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Fake Disallow robots.txt Entry&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;Access the fake location mentioned in the robots.txt file 
+&lt;img src=&quot;./screenshots/honeytrap2_bait_2.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Fake Disallow robots.txt Location + Authentication &quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;In the below log screenshot we can see that Attacker has used the Admin as Username and Password as “Password” to get access to the fake location mentioned in robots.txt, all the tries (of username/password) of attacker are logged at ELK
+&lt;img src=&quot;./screenshots/honeytrap2_logs.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Visualizing the Honeytrap-2 Logs&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HoneyTrap-3 (Adding Fake HTML Comments in the login page)&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;In this trap, we will add a fake HTML comment in the login page, this fake comment redirects the attacker to some other location. Whoever tries to access this location is tagged malicious&lt;/li&gt;
+      &lt;li&gt;Open the Host-IP:9091/login.html in browser and try to access comments of page (like shown in the image below). The highlighted line in the below picture shows the fake HTML comment added by the ModSecurity
+&lt;img src=&quot;./screenshots/honeytrap3_bait.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Fake HTML comment&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;Try to access the location mentioned in the HTML comment
+&lt;img src=&quot;./screenshots/honeytrap3_bait_2.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing HTML comment specified location&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;In the below log screenshot we can see that Attacker is tagged
+&lt;img src=&quot;./screenshots/honeytrap3_logs.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Visualizing the Honeytrap-3 Logs&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HoneyTrap-4 (Adding Fake Hidden Form Fields)&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;HTML hidden form fields are just like normal form fields, except for one distinct difference: The browser doesn’t display them to the user. Hidden fields are used as a mechanism to pass data from one request to another, and their contents are not supposed to be altered&lt;/li&gt;
+      &lt;li&gt;This is how the raw HTML hidden form field looks in the source&lt;/li&gt;
+      &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;input type=&quot;hidden&quot; value=&quot;front&quot; name=&quot;context&quot;&amp;gt;&lt;/code&gt;&lt;/li&gt;
+      &lt;li&gt;Just as we did with adding fake HTML comments, we can use the same methodology to inject fake HTML hidden form fields. The key to this technique is the closing &lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;/form&amp;gt;&lt;/code&gt; HTML tag. We will inject our honeytrap data just before it.&lt;/li&gt;
+      &lt;li&gt;Whoever tries to manipulate this form field is tagged malicious&lt;/li&gt;
+      &lt;li&gt;Open the Host-IP:9091 in browser and try to access hidden form field of page (like shown in the image below). 
+ The highlighted line in the below picture shows the fake HTML comment added by the ModSecurity
+&lt;img src=&quot;./screenshots/honeytrap4_bait.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Fake Hidden Form Field&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;Change the hidden field value to true, put some data in the form and submit it
+&lt;img src=&quot;./screenshots/honeytrap4_bait_2.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Changing the hidden form field value&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;In the below log screenshot we can see that Attacker is tagged at ELK
+&lt;img src=&quot;./screenshots/honeytrap4_logs.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Visualizing the Honeytrap-4 Logs&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HoneyTrap-5 (Adding Fake Cookies)&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;The HTTP protocol has no built-in session awareness. This means that each transaction is independent from the others. The application, therefore, needs a method to track who someone is and what actions he has previously taken (for instance, in a multistep process). Cookies were created precisely for this purpose&lt;/li&gt;
+      &lt;li&gt;The application issues &lt;code class=&quot;highlighter-rouge&quot;&gt;Set-Cookie&lt;/code&gt; response header data to the client web browser.&lt;/li&gt;
+      &lt;li&gt;Much like attackers take aim at parameter payloads, they also attempt to alter cookie data that the application hands out. This can be done with the tools like http://www.editthiscookie.com/&lt;/li&gt;
+      &lt;li&gt;Open the Host-IP:9091 in browser and open the site information to access the cookie information (like shown in the image below). 
+ The highlighted line in the below picture shows the cookie data is &lt;code class=&quot;highlighter-rouge&quot;&gt;Admin:0&lt;/code&gt;
+&lt;img src=&quot;./screenshots/honeytrap5_bait.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Accessing Cookies&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;We try change the cookie data using &lt;code class=&quot;highlighter-rouge&quot;&gt;editthiscookie&lt;/code&gt; chrome-extension (you can others similar to this). We try to change &lt;code class=&quot;highlighter-rouge&quot;&gt;Admin:0&lt;/code&gt; to &lt;code class=&quot;highlighter-rouge&quot;&gt;Admin:5&lt;/code&gt; after that fill the form and submit the data 
+&lt;img src=&quot;./screenshots/honeytrap5_bait_2.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Changing the cookie value&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;In the below log screenshot we can see that Attacker is tagged at ELK who changed the cookie value
+&lt;img src=&quot;./screenshots/honeytrap4_logs.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Visualizing the Honeytrap-5 Logs&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Please check the modsecurity conf. file for more information about the honeytraps.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Dashboard Visualization&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;Click on Dashboard from left hand side and click on Honeytrap Dashboard then you will see various information gathered through all honeytraps
+&lt;img src=&quot;./screenshots/savedObj3.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Saved Object Creation&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Threat Reporting at MISP&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;All the information gathered through all honeytraps is automically reported at MISP dashboard. Go to MISP URL (https://localhost) for viewing them.
+&lt;img src=&quot;./screenshots/events.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Honeytrap Events at MISP&quot; /&gt;&lt;/li&gt;
+      &lt;li&gt;The events and tags are auto-generated from &lt;code class=&quot;highlighter-rouge&quot;&gt;kibana-client.py&lt;/code&gt;
+&lt;img src=&quot;./screenshots/tags.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Honeytrap Events at MISP&quot; /&gt;
+&lt;img src=&quot;./screenshots/event-details.png?raw=true&quot; alt=&quot;Alt text&quot; title=&quot;Honeytrap Events at MISP&quot; /&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Issues&lt;/strong&gt;:
+    &lt;ul&gt;
+      &lt;li&gt;max virtual memory areas vm.max_map_count [65530] is too low, increase to at least [262144], Run the below command 
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+   sudo sysctl -w vm.max_map_count=262144
+&lt;/code&gt;&lt;/li&gt;
+      &lt;li&gt;If there is problem running with logstash, try with 
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+ /opt/logstash/bin/logstash --path.data /tmp/logstash/data -e filebeat_logstash.conf
+&lt;/code&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;References&lt;/strong&gt;
+    &lt;ul&gt;
+      &lt;li&gt;Web Application Defender’s Cookbook: Battling Hackers and Protecting Users&lt;/li&gt;
+      &lt;li&gt;http://www.editthiscookie.com/&lt;/li&gt;
+      &lt;li&gt;https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/detecting-malice-with-modsecurity-honeytraps/&lt;/li&gt;
+      &lt;li&gt;https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/setting-honeytraps-with-modsecurity-adding-fake-hidden-form-fields/&lt;/li&gt;
+      &lt;li&gt;https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/setting-honeytraps-with-modsecurity-adding-fake-cookies/&lt;/li&gt;
+      &lt;li&gt;https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/setting-honeytraps-with-modsecurity-adding-fake-robotstxt-disallow-entries/&lt;/li&gt;
+      &lt;li&gt;https://logz.io/learn/complete-guide-elk-stack/&lt;/li&gt;
+      &lt;li&gt;https://misp-project.org&lt;/li&gt;
+      &lt;li&gt;https://github.com/harvard-itsecurity/docker-misp&lt;/li&gt;
+      &lt;li&gt;https://pymisp.readthedocs.io/&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+</description>
+        <pubDate>Sun, 18 Aug 2019 11:47:43 +0530</pubDate>
+        <link>http://tulja.github.io/jekyll/update/2019/08/18/Web-Honeypots-GSoC19.html</link>
+        <guid isPermaLink="true">http://tulja.github.io/jekyll/update/2019/08/18/Web-Honeypots-GSoC19.html</guid>
+        
+        
+        <category>jekyll</category>
+        
+        <category>update</category>
+        
+      </item>
     
       <item>
         <title>Flow QoS using OpenVSwitch</title>
